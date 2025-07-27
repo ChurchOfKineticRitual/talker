@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vapi Web Demo</title>
+    <script src="https://cdn.vapi.ai/web/v1.1.0/vapi.umd.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .container { text-align: center; padding: 2rem; background-color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #1c1e21; }
+        button { font-size: 1rem; padding: 0.75rem 1.5rem; margin: 0.5rem; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; }
+        #start-call-btn { background-color: #42b72a; color: white; }
+        #start-call-btn:disabled { background-color: #a5d6a7; }
+        #stop-call-btn { background-color: #fa3e3e; color: white; }
+        #stop-call-btn:disabled { background-color: #ef9a9a; }
+        #call-status { margin: 1rem 0; font-style: italic; color: #606770; }
+        #transcription-display { margin-top: 1rem; padding: 1rem; border: 1px solid #dddfe2; border-radius: 8px; width: 90%; max-width: 500px; height: 250px; overflow-y: auto; text-align: left; background-color: #f7f8fa; }
+        #transcription-display p { margin: 0 0 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Vapi Voice Agent</h1>
+        <div>
+            <button id="start-call-btn">Start Call</button>
+            <button id="stop-call-btn" disabled>Stop Call</button>
+        </div>
+        <div id="call-status">Status: Idle</div>
+        <div id="transcription-display"></div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const VAPI_PUBLIC_KEY = '9a3cbf9c-d1df-476f-984c-ce78100189f9'; // Replace with your Vapi Public Key
+        const VAPI_ASSISTANT_ID = 'a9cafb7c-3874-433d-b697-9edeb3445575'; // Replace with your Vapi Assistant ID
+        // ---------------------
+
+        // 2. Initialize Vapi
+        const vapi = new Vapi(VAPI_PUBLIC_KEY);
+
+        // 3. Get UI elements
+        const startBtn = document.getElementById('start-call-btn');
+        const stopBtn = document.getElementById('stop-call-btn');
+        const callStatusDiv = document.getElementById('call-status');
+        const transcriptionDiv = document.getElementById('transcription-display');
+
+        // 4. Define UI update logic
+        const updateUIForCallStart = () => {
+            callStatusDiv.textContent = 'Status: Connecting...';
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            transcriptionDiv.innerHTML = '';
+        };
+
+        const updateUIForCallEnd = () => {
+            callStatusDiv.textContent = 'Status: Idle';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+
+        // 5. Add event listeners to buttons
+        startBtn.addEventListener('click', () => {
+            updateUIForCallStart();
+            vapi.start(VAPI_ASSISTANT_ID);
+        });
+
+        stopBtn.addEventListener('click', () => {
+            vapi.stop();
+        });
+
+        // 6. Listen for Vapi events
+        vapi.on('call-start', () => {
+            callStatusDiv.textContent = 'Status: Call in progress...';
+        });
+
+        vapi.on('call-end', () => {
+            updateUIForCallEnd();
+        });
+
+        vapi.on('error', (e) => {
+            console.error('Vapi error:', e);
+            callStatusDiv.textContent = `Status: Error (${e.message || 'Unknown error'})`;
+            updateUIForCallEnd();
+        });
+
+        vapi.on('transcript', (transcript) => {
+            if (transcript.type === 'final') {
+                const speaker = transcript.role === 'assistant' ? '🤖 Assistant:' : '👤 You:';
+                const messageElement = document.createElement('p');
+                messageElement.innerHTML = `<b>${speaker}</b> ${transcript.transcript}`;
+                transcriptionDiv.appendChild(messageElement);
+                transcriptionDiv.scrollTop = transcriptionDiv.scrollHeight;
+            }
+        });
+
+    </script>
+</body>
+</html>
