@@ -60,6 +60,7 @@ function App() {
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState<'user' | 'assistant' | null>(null);
 
   const vapiRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
@@ -126,6 +127,7 @@ function App() {
 
     vapi.on('call-end', () => {
       setAppState('ended');
+      setIsSpeaking(null);
     });
 
     vapi.on('message', (message: any) => {
@@ -148,20 +150,20 @@ function App() {
 
     if (!transcript) return;
 
-    setMessages(prev => {
-      const last = prev[prev.length - 1];
-      if (last && last.role === role && !last.isFinal) {
-        const updated = [...prev];
-        updated[updated.length - 1] = { ...last, text: transcript, isFinal };
-        return updated;
-      }
-      return [...prev, {
-        id: `${Date.now()}-${Math.random()}`,
-        role,
-        text: transcript,
-        isFinal,
-      }];
-    });
+    // Show speaking indicator for interim results
+    if (!isFinal) {
+      setIsSpeaking(role);
+      return;
+    }
+
+    // Only add final transcripts to the message list
+    setIsSpeaking(null);
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-${Math.random()}`,
+      role,
+      text: transcript,
+      isFinal: true,
+    }]);
   };
 
   const startCall = async () => {
@@ -221,6 +223,7 @@ function App() {
     setDuration(0);
     setSessionId('');
     setCopied(false);
+    setIsSpeaking(null);
   };
 
   // Render
@@ -272,7 +275,7 @@ function App() {
 
             {/* Transcript */}
             <div className="flex-1 bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto transcript-box" style={{ maxHeight: '60vh' }}>
-              {messages.length === 0 ? (
+              {messages.length === 0 && !isSpeaking ? (
                 <p className="text-gray-500 text-center">Listening...</p>
               ) : (
                 <div className="space-y-3">
@@ -282,11 +285,27 @@ function App() {
                         msg.role === 'user'
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-700 text-gray-200'
-                      } ${!msg.isFinal ? 'opacity-70' : ''}`}>
+                      }`}>
                         {msg.text}
                       </span>
                     </div>
                   ))}
+                  {/* Speaking indicator */}
+                  {isSpeaking && (
+                    <div className={isSpeaking === 'user' ? 'text-right' : 'text-left'}>
+                      <span className={`inline-block px-3 py-2 rounded-lg ${
+                        isSpeaking === 'user'
+                          ? 'bg-blue-600/50 text-white/70'
+                          : 'bg-gray-700/50 text-gray-400'
+                      }`}>
+                        <span className="inline-flex gap-1">
+                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>•</span>
+                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>•</span>
+                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>•</span>
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
