@@ -1,26 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 
-// Session ID format: eS_DDMmmYY-N
+// Session ID format: VS_DDMmmYY-N (Voice Session)
 function generateSessionId(): string {
   const now = new Date();
   const day = now.getDate();
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const month = months[now.getMonth()];
   const year = String(now.getFullYear()).slice(-2);
-  
+
   // Get session number from localStorage (resets daily)
   const dateKey = `${day}${month}${year}`;
-  const storedDate = localStorage.getItem('eS_date');
+  const storedDate = localStorage.getItem('VS_date');
   let sessionNum = 1;
-  
+
   if (storedDate === dateKey) {
-    sessionNum = parseInt(localStorage.getItem('eS_num') || '0') + 1;
+    sessionNum = parseInt(localStorage.getItem('VS_num') || '0') + 1;
   }
-  
-  localStorage.setItem('eS_date', dateKey);
-  localStorage.setItem('eS_num', String(sessionNum));
-  
-  return `eS_${day}${month}${year}-${sessionNum}`;
+
+  localStorage.setItem('VS_date', dateKey);
+  localStorage.setItem('VS_num', String(sessionNum));
+
+  return `VS_${day}${month}${year}-${sessionNum}`;
 }
 
 function formatDuration(seconds: number): string {
@@ -36,7 +36,7 @@ function formatTranscriptForExport(sessionId: string, duration: string, messages
   let transcript = `---\nsession_id: ${sessionId}\nduration: ${duration}\nstart_time: ${startTime}\nsummary: [TO BE FILLED]\n---\n\n`;
   
   messages.forEach(msg => {
-    const speaker = msg.role === 'user' ? 'Jordan' : 'eA';
+    const speaker = msg.role === 'user' ? 'Jordan' : 'cA';
     transcript += `**${speaker}:** ${msg.text}\n\n`;
   });
   
@@ -61,6 +61,7 @@ function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState<'user' | 'assistant' | null>(null);
+  const [sessionContext, setSessionContext] = useState<string>('');
 
   const vapiRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
@@ -179,7 +180,18 @@ function App() {
       const newSessionId = generateSessionId();
       setSessionId(newSessionId);
       setAppState('connecting');
-      await vapiRef.current.start(assistantId);
+
+      // Pass context via assistantOverrides if provided
+      const callOptions: { assistantOverrides?: { variableValues?: { sessionContext: string } } } = {};
+      if (sessionContext.trim()) {
+        callOptions.assistantOverrides = {
+          variableValues: {
+            sessionContext: sessionContext.trim()
+          }
+        };
+      }
+
+      await vapiRef.current.start(assistantId, callOptions);
     } catch (error) {
       console.error('Failed to start call:', error);
       setAppState('idle');
@@ -224,6 +236,7 @@ function App() {
     setSessionId('');
     setCopied(false);
     setIsSpeaking(null);
+    setSessionContext('');
   };
 
   // Render
@@ -231,7 +244,7 @@ function App() {
     <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col">
       {/* Header */}
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-300">Enterview Agent</h1>
+        <h1 className="text-2xl font-bold text-gray-300">Capture Voice</h1>
         {sessionId && (
           <p className="text-sm text-gray-500 font-mono mt-1">{sessionId}</p>
         )}
@@ -240,7 +253,24 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full">
         {appState === 'idle' && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            {/* Session Context Input */}
+            <div className="w-full max-w-md">
+              <label htmlFor="context" className="block text-sm text-gray-400 mb-2">
+                Session Context (optional)
+              </label>
+              <textarea
+                id="context"
+                value={sessionContext}
+                onChange={(e) => setSessionContext(e.target.value)}
+                placeholder="e.g., Focus on weekend visitors, grandparents, family from Edinburgh..."
+                className="w-full h-24 px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Provide context to guide the session (people to discuss, topics to cover, etc.)
+              </p>
+            </div>
+
             <button
               onClick={startCall}
               disabled={!isConnected}
@@ -354,7 +384,7 @@ function App() {
               <div className="space-y-2 text-sm">
                 {messages.map(msg => (
                   <p key={msg.id} className={msg.role === 'user' ? 'text-blue-400' : 'text-gray-300'}>
-                    <strong>{msg.role === 'user' ? 'Jordan' : 'eA'}:</strong> {msg.text}
+                    <strong>{msg.role === 'user' ? 'Jordan' : 'cA'}:</strong> {msg.text}
                   </p>
                 ))}
               </div>
