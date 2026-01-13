@@ -244,7 +244,7 @@ function App() {
     <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col">
       {/* Header */}
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-300">Capture Voice</h1>
+        <h1 className="text-2xl font-bold text-gray-300">Talker</h1>
         {sessionId && (
           <p className="text-sm text-gray-500 font-mono mt-1">{sessionId}</p>
         )}
