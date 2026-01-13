@@ -43,6 +43,12 @@ function formatTranscriptForExport(sessionId: string, duration: string, messages
   return transcript;
 }
 
+// Get context from URL parameter
+function getContextFromUrl(): string {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('context') || '';
+}
+
 type AppState = 'idle' | 'connecting' | 'conversation' | 'ended';
 
 interface Message {
@@ -61,11 +67,15 @@ function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState<'user' | 'assistant' | null>(null);
-  const [sessionContext, setSessionContext] = useState<string>('');
 
   const vapiRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Generate session ID on mount
+  useEffect(() => {
+    setSessionId(generateSessionId());
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -177,16 +187,15 @@ function App() {
     }
 
     try {
-      const newSessionId = generateSessionId();
-      setSessionId(newSessionId);
       setAppState('connecting');
 
-      // Pass context via assistantOverrides if provided
+      // Pass context via assistantOverrides if provided in URL
+      const urlContext = getContextFromUrl();
       const callOptions: { assistantOverrides?: { variableValues?: { sessionContext: string } } } = {};
-      if (sessionContext.trim()) {
+      if (urlContext.trim()) {
         callOptions.assistantOverrides = {
           variableValues: {
-            sessionContext: sessionContext.trim()
+            sessionContext: urlContext.trim()
           }
         };
       }
@@ -233,10 +242,9 @@ function App() {
     setAppState('idle');
     setMessages([]);
     setDuration(0);
-    setSessionId('');
+    setSessionId(generateSessionId());
     setCopied(false);
     setIsSpeaking(null);
-    setSessionContext('');
   };
 
   // Render
@@ -245,32 +253,16 @@ function App() {
       {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold text-gray-300">Talker</h1>
-        {sessionId && (
-          <p className="text-sm text-gray-500 font-mono mt-1">{sessionId}</p>
-        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full">
         {appState === 'idle' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-6">
-            {/* Session Context Input */}
-            <div className="w-full max-w-md">
-              <label htmlFor="context" className="block text-sm text-gray-400 mb-2">
-                Session Context (optional)
-              </label>
-              <textarea
-                id="context"
-                value={sessionContext}
-                onChange={(e) => setSessionContext(e.target.value)}
-                placeholder="e.g., Focus on weekend visitors, grandparents, family from Edinburgh..."
-                className="w-full h-24 px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 resize-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Provide context to guide the session (people to discuss, topics to cover, etc.)
-              </p>
-            </div>
-
+            {/* Session ID */}
+            <p className="text-lg text-gray-400 font-mono">{sessionId}</p>
+            
+            {/* Talk Button */}
             <button
               onClick={startCall}
               disabled={!isConnected}
@@ -280,7 +272,7 @@ function App() {
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {isConnected ? 'START SESSION' : 'Connecting...'}
+              {isConnected ? 'TALK' : 'Connecting...'}
             </button>
           </div>
         )}
